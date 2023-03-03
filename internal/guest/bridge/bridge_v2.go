@@ -21,6 +21,7 @@ import (
 	"github.com/Microsoft/hcsshim/internal/log"
 	"github.com/Microsoft/hcsshim/internal/oc"
 	"github.com/Microsoft/hcsshim/internal/protocol/guestrequest"
+	"github.com/sirupsen/logrus"
 )
 
 // The capabilities of this GCS.
@@ -82,6 +83,7 @@ func (b *Bridge) negotiateProtocolV2(r *Request) (_ RequestResponse, err error) 
 //
 // This is allowed only for protocol version 4+, schema version 2.1+
 func (b *Bridge) createContainerV2(r *Request) (_ RequestResponse, err error) {
+	logrus.Info("GCS started")
 	ctx, span := oc.StartSpan(r.Context, "opengcs::bridge::createContainerV2")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
