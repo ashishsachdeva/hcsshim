@@ -6,6 +6,7 @@ package bridge
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"syscall"
 	"time"
 
@@ -83,18 +84,22 @@ func (b *Bridge) negotiateProtocolV2(r *Request) (_ RequestResponse, err error) 
 //
 // This is allowed only for protocol version 4+, schema version 2.1+
 func (b *Bridge) createContainerV2(r *Request) (_ RequestResponse, err error) {
-	logrus.Info("GCS started")
+	logrus.Info("++++ opengcs::bridge::createContainerV2 ++++")
 	ctx, span := oc.StartSpan(r.Context, "opengcs::bridge::createContainerV2")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute("cid", r.ContainerID))
 
 	var request prot.ContainerCreate
+
+	logrus.Info("++++ Request container config in CreateContainerV2: %s ++++", request.ContainerConfig)
 	if err := commonutils.UnmarshalJSONWithHresult(r.Message, &request); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal JSON in message \"%s\"", r.Message)
 	}
 
 	var settingsV2 prot.VMHostedContainerSettingsV2
+	annotations, _ := json.Marshal(settingsV2.OCISpecification.Annotations)
+	logrus.Info("++++ annotations in CreateContainerV2: %s ++++", annotations)
 	if err := commonutils.UnmarshalJSONWithHresult([]byte(request.ContainerConfig), &settingsV2); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal JSON for ContainerConfig \"%s\"", request.ContainerConfig)
 	}
@@ -137,6 +142,15 @@ func (b *Bridge) createContainerV2(r *Request) (_ RequestResponse, err error) {
 //
 // This is allowed only for protocol version 4+, schema version 2.1+
 func (b *Bridge) startContainerV2(r *Request) (_ RequestResponse, err error) {
+	logrus.Info("++++ opengcs::bridge::startContainerV2 ++++")
+
+	err1 := syscall.Mkfifo("testpipe1", 0666)
+	if err1 != nil {
+		logrus.Info("++++ Error creating test named pipe1: %s ++++", err1)
+	} else {
+		logrus.Info("++++ Created test named pipe1 ++++")
+	}
+
 	_, span := oc.StartSpan(r.Context, "opengcs::bridge::startContainerV2")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
@@ -168,12 +182,23 @@ func (b *Bridge) startContainerV2(r *Request) (_ RequestResponse, err error) {
 //
 // This is allowed only for protocol version 4+, schema version 2.1+
 func (b *Bridge) execProcessV2(r *Request) (_ RequestResponse, err error) {
+	logrus.Info("++++ opengcs::bridge::execProcessV2 ++++")
+
+	err1 := syscall.Mkfifo("testpipe2", 0666)
+	if err1 != nil {
+		logrus.Info("++++ Error creating test named pipe2: %s ++++", err1)
+	} else {
+		logrus.Info("++++ Created test named pipe2 ++++")
+	}
+
 	ctx, span := oc.StartSpan(r.Context, "opengcs::bridge::execProcessV2")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(trace.StringAttribute("cid", r.ContainerID))
 
 	var request prot.ContainerExecuteProcess
+	logrus.Info("++++ ProcessParameters in execProcessV2: %s ++++", request.Settings.ProcessParameters)
+
 	if err := commonutils.UnmarshalJSONWithHresult(r.Message, &request); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal JSON in message \"%s\"", r.Message)
 	}
@@ -181,6 +206,11 @@ func (b *Bridge) execProcessV2(r *Request) (_ RequestResponse, err error) {
 	// The request contains a JSON string field which is equivalent to an
 	// ExecuteProcessInfo struct.
 	var params prot.ProcessParameters
+
+	annotations, _ := json.Marshal(params.OCISpecification.Annotations)
+	logrus.Info("++++ annotations in execProcessV2: %s ++++", annotations)
+
+	logrus.Info("++++ command args in execProcessV2: %s ++++", strings.Join(params.CommandArgs, ", "))
 	if err := commonutils.UnmarshalJSONWithHresult([]byte(request.Settings.ProcessParameters), &params); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal JSON for ProcessParameters \"%s\"", request.Settings.ProcessParameters)
 	}
