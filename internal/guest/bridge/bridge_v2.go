@@ -23,6 +23,8 @@ import (
 	"github.com/Microsoft/hcsshim/internal/oc"
 	"github.com/Microsoft/hcsshim/internal/protocol/guestrequest"
 	"github.com/sirupsen/logrus"
+
+	oci "github.com/opencontainers/runtime-spec/specs-go"
 )
 
 // The capabilities of this GCS.
@@ -92,14 +94,21 @@ func (b *Bridge) createContainerV2(r *Request) (_ RequestResponse, err error) {
 
 	var request prot.ContainerCreate
 
-	logrus.Info("++++ Request container config in CreateContainerV2: %s ++++", request.ContainerConfig)
+	logrus.Info("++++ Request container config in CreateContainerV2: \"%s\" ++++", request.ContainerConfig)
 	if err := commonutils.UnmarshalJSONWithHresult(r.Message, &request); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal JSON in message \"%s\"", r.Message)
 	}
 
 	var settingsV2 prot.VMHostedContainerSettingsV2
-	annotations, _ := json.Marshal(settingsV2.OCISpecification.Annotations)
-	logrus.Info("++++ annotations in CreateContainerV2: %s ++++", annotations)
+
+	var OCISpec *oci.Spec = settingsV2.OCISpecification
+	if OCISpec != nil {
+		annotations, _ := json.Marshal(OCISpec.Annotations)
+		logrus.Info("++++ annotations in CreateContainerV2: \"%s\" ++++", annotations)
+	} else {
+		logrus.Info("OCI spec is null in CreateContainerV2")
+	}
+
 	if err := commonutils.UnmarshalJSONWithHresult([]byte(request.ContainerConfig), &settingsV2); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal JSON for ContainerConfig \"%s\"", request.ContainerConfig)
 	}
@@ -146,7 +155,7 @@ func (b *Bridge) startContainerV2(r *Request) (_ RequestResponse, err error) {
 
 	err1 := syscall.Mkfifo("testpipe1", 0666)
 	if err1 != nil {
-		logrus.Info("++++ Error creating test named pipe1: %s ++++", err1)
+		logrus.Info("++++ Error creating test named pipe1: \"%s\" ++++", err1)
 	} else {
 		logrus.Info("++++ Created test named pipe1 ++++")
 	}
@@ -186,7 +195,7 @@ func (b *Bridge) execProcessV2(r *Request) (_ RequestResponse, err error) {
 
 	err1 := syscall.Mkfifo("testpipe2", 0666)
 	if err1 != nil {
-		logrus.Info("++++ Error creating test named pipe2: %s ++++", err1)
+		logrus.Info("++++ Error creating test named pipe2: \"%s\" ++++", err1)
 	} else {
 		logrus.Info("++++ Created test named pipe2 ++++")
 	}
@@ -197,7 +206,7 @@ func (b *Bridge) execProcessV2(r *Request) (_ RequestResponse, err error) {
 	span.AddAttributes(trace.StringAttribute("cid", r.ContainerID))
 
 	var request prot.ContainerExecuteProcess
-	logrus.Info("++++ ProcessParameters in execProcessV2: %s ++++", request.Settings.ProcessParameters)
+	logrus.Info("++++ ProcessParameters in execProcessV2: \"%s\" ++++", request.Settings.ProcessParameters)
 
 	if err := commonutils.UnmarshalJSONWithHresult(r.Message, &request); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal JSON in message \"%s\"", r.Message)
@@ -207,10 +216,15 @@ func (b *Bridge) execProcessV2(r *Request) (_ RequestResponse, err error) {
 	// ExecuteProcessInfo struct.
 	var params prot.ProcessParameters
 
-	annotations, _ := json.Marshal(params.OCISpecification.Annotations)
-	logrus.Info("++++ annotations in execProcessV2: %s ++++", annotations)
+	var OCISpec *oci.Spec = params.OCISpecification
+	if OCISpec != nil {
+		annotations, _ := json.Marshal(OCISpec.Annotations)
+		logrus.Info("++++ annotations in execProcessV2: \"%s\" ++++", annotations)
+	} else {
+		logrus.Info("OCI spec is null in execProcessV2")
+	}
 
-	logrus.Info("++++ command args in execProcessV2: %s ++++", strings.Join(params.CommandArgs, ", "))
+	logrus.Info("++++ command args in execProcessV2: \"%s\" ++++", strings.Join(params.CommandArgs, ", "))
 	if err := commonutils.UnmarshalJSONWithHresult([]byte(request.Settings.ProcessParameters), &params); err != nil {
 		return nil, errors.Wrapf(err, "failed to unmarshal JSON for ProcessParameters \"%s\"", request.Settings.ProcessParameters)
 	}
