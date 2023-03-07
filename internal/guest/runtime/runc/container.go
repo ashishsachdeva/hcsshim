@@ -74,7 +74,7 @@ func (c *container) Start() error {
 		logrus.WithField(logfields.ContainerID, c.id).Debug("error creating output file in tmp")
 	}
 
-	outputFile, err3 := os.OpenFile("/tmp/output.txt", os.O_WRONLY, os.ModeNamedPipe)
+	outputFile, err3 := os.OpenFile("/tmp/output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err3 != nil {
 		logrus.WithField(logfields.ContainerID, c.id).Debug("Error opening named pipe:", err3)
 	}
