@@ -5,8 +5,10 @@ package runc
 
 import (
 	"encoding/json"
+	"io"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -61,6 +63,27 @@ func (c *container) Start() error {
 		c.r.cleanupContainer(c.id) //nolint:errcheck
 		return errors.Wrapf(runcErr, "runc start failed with %v: %s", err, string(out))
 	}
+
+	cmdstdout, err1 := cmd.StdoutPipe()
+	if err1 != nil {
+		logrus.WithField(logfields.ContainerID, c.id).Debug("error getting stdout of cmd")
+	}
+
+	cmd1 := exec.Command("touch", "/tmp/output.txt")
+	if err2 := cmd1.Run(); err2 != nil {
+		logrus.WithField(logfields.ContainerID, c.id).Debug("error creating output file in tmp")
+	}
+
+	outputFile, err3 := os.OpenFile("/tmp/output.txt", os.O_WRONLY, os.ModeNamedPipe)
+	if err3 != nil {
+		logrus.WithField(logfields.ContainerID, c.id).Debug("Error opening named pipe:", err3)
+	}
+
+	_, err5 := io.Copy(outputFile, cmdstdout)
+	if err5 != nil {
+		logrus.WithField(logfields.ContainerID, c.id).Debug("Error redirecting stdout to file")
+	}
+
 	return nil
 }
 
