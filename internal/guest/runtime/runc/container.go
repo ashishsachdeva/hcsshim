@@ -394,7 +394,7 @@ func (c *container) startProcess(
 
 	cmdstdout, err1 := cmd.StdoutPipe()
 
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
 		runcErr := getRuncLogError(logPath)
 		return nil, errors.Wrapf(runcErr, "failed to run runc create/exec call for container %s with %v", c.id, err)
 	}
@@ -417,6 +417,12 @@ func (c *container) startProcess(
 	_, err5 := io.Copy(outputFile, cmdstdout)
 	if err5 != nil {
 		logrus.Infof("Error redirecting stdout to file", fmt.Errorf("outer error context: %w", err5).Error())
+	}
+
+	// Wait for the command to complete
+	if err6 := cmd.Wait(); err6 != nil {
+		logrus.Infof("Error waiting for cmd:", fmt.Errorf("outer error context: %w", err6).Error())
+		fmt.Println(err6)
 	}
 
 	var ttyRelay *stdio.TtyRelay
