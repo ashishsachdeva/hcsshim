@@ -384,9 +384,9 @@ func (c *container) startProcess(
 		if fileSet.In != nil {
 			cmd.Stdin = fileSet.In
 		}
-		if fileSet.Out != nil {
+		/*if fileSet.Out != nil {
 			cmd.Stdout = fileSet.Out
-		}
+		}*/
 		if fileSet.Err != nil {
 			cmd.Stderr = fileSet.Err
 		}
