@@ -6,7 +6,6 @@ package runc
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -369,6 +368,17 @@ func (c *container) startProcess(
 	cmd := runcCommandLog(logPath, args...)
 
 	var pipeRelay *stdio.PipeRelay
+
+	cmd1 := exec.Command("touch", "/tmp/output.txt")
+	if err2 := cmd1.Run(); err2 != nil {
+		logrus.Infof("error creating output file in tmp", fmt.Errorf("outer error context: %w", err2).Error())
+	}
+
+	outputFile, err3 := os.OpenFile("/tmp/output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err3 != nil {
+		logrus.Infof("Error opening named pipe:", fmt.Errorf("outer error context: %w", err3).Error())
+	}
+
 	if !hasTerminal {
 		pipeRelay, err = stdio.NewPipeRelay(stdioSet)
 		if err != nil {
@@ -384,34 +394,24 @@ func (c *container) startProcess(
 		if fileSet.In != nil {
 			cmd.Stdin = fileSet.In
 		}
-		/*if fileSet.Out != nil {
-			cmd.Stdout = fileSet.Out
-		}*/
+		if fileSet.Out != nil {
+			cmd.Stdout = outputFile
+		}
 		if fileSet.Err != nil {
 			cmd.Stderr = fileSet.Err
 		}
 	}
 
-	cmdstdout, err1 := cmd.StdoutPipe()
+	//cmdstdout, err1 := cmd.StdoutPipe()
 
-	if err := cmd.Start(); err != nil {
+	if err := cmd.Run(); err != nil {
 		runcErr := getRuncLogError(logPath)
 		return nil, errors.Wrapf(runcErr, "failed to run runc create/exec call for container %s with %v", c.id, err)
 	}
 
-	if err1 != nil {
+	/*if err1 != nil {
 		//e := fmt.Errorf("outer error context: %w", err)
 		logrus.Infof("error getting stdout of cmd", fmt.Errorf("outer error context: %w", err1).Error())
-	}
-
-	cmd1 := exec.Command("touch", "/tmp/output.txt")
-	if err2 := cmd1.Run(); err2 != nil {
-		logrus.Infof("error creating output file in tmp", fmt.Errorf("outer error context: %w", err2).Error())
-	}
-
-	outputFile, err3 := os.OpenFile("/tmp/output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err3 != nil {
-		logrus.Infof("Error opening named pipe:", fmt.Errorf("outer error context: %w", err3).Error())
 	}
 
 	_, err5 := io.Copy(outputFile, cmdstdout)
@@ -423,7 +423,7 @@ func (c *container) startProcess(
 	if err6 := cmd.Wait(); err6 != nil {
 		logrus.Infof("Error waiting for cmd:", fmt.Errorf("outer error context: %w", err6).Error())
 		fmt.Println(err6)
-	}
+	}*/
 
 	var ttyRelay *stdio.TtyRelay
 	if hasTerminal {
