@@ -153,7 +153,7 @@ func (b *Bridge) createContainerV2(r *Request) (_ RequestResponse, err error) {
 func (b *Bridge) startContainerV2(r *Request) (_ RequestResponse, err error) {
 	logrus.Info("++++ opengcs::bridge::startContainerV2 ++++")
 
-	err1 := syscall.Mkfifo("testpipe1", 0666)
+	err1 := syscall.Mkfifo("/tmp/pipe1", 0666)
 	if err1 != nil {
 		logrus.Infof("++++ Error creating test named pipe1: \"%s\" ++++", err1)
 	} else {
@@ -193,7 +193,7 @@ func (b *Bridge) startContainerV2(r *Request) (_ RequestResponse, err error) {
 func (b *Bridge) execProcessV2(r *Request) (_ RequestResponse, err error) {
 	logrus.Info("++++ opengcs::bridge::execProcessV2 ++++")
 
-	err1 := syscall.Mkfifo("testpipe2", 0666)
+	err1 := syscall.Mkfifo("/tmp/pipe2", 0666)
 	if err1 != nil {
 		logrus.Infof("++++ Error creating test named pipe2: \"%s\" ++++", err1)
 	} else {
