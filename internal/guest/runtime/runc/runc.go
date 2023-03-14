@@ -193,6 +193,8 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 	}
 
 	args := []string{"create", "-b", bundlePath, "--no-pivot"}
+	args = append(args, "--preserve-fds", "1")
+
 	p, err := c.startProcess(tempProcessDir, spec.Process.Terminal, stdioSet, args...)
 	if err != nil {
 		return nil, err
