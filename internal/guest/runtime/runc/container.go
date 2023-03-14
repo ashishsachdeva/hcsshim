@@ -374,7 +374,7 @@ func (c *container) startProcess(
 		logrus.Infof("error creating output file in tmp", fmt.Errorf("outer error context: %w", err2).Error())
 	}
 
-	outputFile, _ := os.OpenFile("/tmp/output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	//outputFile, _ := os.OpenFile("/tmp/output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	pipe, err3 := os.OpenFile("/tmp/pipe1", os.O_RDWR|os.O_APPEND, os.ModeNamedPipe)
 	if err3 != nil {
 		logrus.Infof("Error opening named pipe:", fmt.Errorf("outer error context: %w", err3).Error())
@@ -396,8 +396,8 @@ func (c *container) startProcess(
 			cmd.Stdin = fileSet.In
 		}
 		if fileSet.Out != nil {
-			cmd.Stdout = outputFile
-			//cmd.Stdout = pipe
+			//cmd.Stdout = outputFile
+			cmd.Stdout = pipe
 		}
 		if fileSet.Err != nil {
 			cmd.Stderr = fileSet.Err
