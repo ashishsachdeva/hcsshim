@@ -369,7 +369,7 @@ func (c *container) startProcess(
 	if err3 != nil {
 		logrus.Infof("Error opening named pipe:", fmt.Errorf("outer error context: %w", err3).Error())
 	}
-	args = append(args, "--preserve-fds", strconv.Itoa(int(pipe.Fd())))
+	args = append(args, "--fd", strconv.Itoa(int(pipe.Fd())))
 
 	cmd := runcCommandLog(logPath, args...)
 
