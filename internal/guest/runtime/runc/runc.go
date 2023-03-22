@@ -196,6 +196,14 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 
 	logrus.Infof("++++ bundlePath in runCreateCommand in runc.go : \"%s\" ++++", bundlePath)
 
+	if spec.Annotations != nil {
+		logrus.Info("++++ Annotations present in spec in runCreateCommand.. ++++")
+		annotations, _ := json.Marshal(spec.Annotations)
+		logrus.Infof("++++ annotations in runCreateCommand in runc.go: \"%s\" ++++", annotations)
+	} else {
+		logrus.Info("annotations nil in runCreateCommand in runc.go")
+	}
+
 	args := []string{"create", "-b", bundlePath, "--no-pivot"}
 	args = append(args, "--preserve-fds", "1")
 
