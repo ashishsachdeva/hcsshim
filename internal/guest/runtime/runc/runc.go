@@ -196,6 +196,8 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 
 	logrus.Infof("++++ bundlePath in runCreateCommand in runc.go : \"%s\" ++++", bundlePath)
 
+	logrus.Infof("++++ Hostname in spec in runCreateCommand in runc.go : \"%s\" ++++", spec.Hostname)
+
 	if spec.Annotations != nil {
 		logrus.Info("++++ Annotations present in spec in runCreateCommand.. ++++")
 		annotations, _ := json.Marshal(spec.Annotations)
