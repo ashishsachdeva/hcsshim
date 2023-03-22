@@ -14,6 +14,7 @@ import (
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/Microsoft/hcsshim/internal/guest/commonutils"
@@ -155,6 +156,7 @@ func (r *runcRuntime) waitOnProcess(pid int) (int, error) {
 
 // runCreateCommand sets up the arguments for calling runc create.
 func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *stdio.ConnectionSet) (runtime.Container, error) {
+	logrus.Info("++++ In runCreateCommand in runc.go ++++")
 	c := &container{r: r, id: id}
 	if err := r.makeContainerDir(id); err != nil {
 		return nil, err
@@ -191,6 +193,8 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 		// Intentionally ignore the error.
 		_ = os.MkdirAll(cwd, 0755)
 	}
+
+	logrus.Infof("++++ bundlePath in runCreateCommand in runc.go : \"%s\" ++++", bundlePath)
 
 	args := []string{"create", "-b", bundlePath, "--no-pivot"}
 	args = append(args, "--preserve-fds", "1")
