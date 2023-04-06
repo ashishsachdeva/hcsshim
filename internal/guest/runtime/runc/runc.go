@@ -206,6 +206,11 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 		logrus.Info("annotations nil in runCreateCommand in runc.go")
 	}
 
+	if spec.Process.Env != nil {
+		logrus.Info("++++ Env Vars present in spec in runCreateCommand.. ++++")
+		logrus.Infof("++++ Env Vars in runCreateCommand in runc.go: \"%s\" ++++", strings.Join(spec.Process.Env, ", "))
+	}
+
 	args := []string{"create", "-b", bundlePath, "--no-pivot"}
 	args = append(args, "--preserve-fds", "1")
 
