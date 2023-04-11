@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -328,7 +328,8 @@ func (c *container) runExecCommand(processDef *oci.Process, stdioSet *stdio.Conn
 
 	args := []string{"exec"}
 	args = append(args, "-d", "--process", filepath.Join(tempProcessDir, "process.json"))
-	return c.startProcess(tempProcessDir, processDef.Terminal, stdioSet, args...)
+	emptyMap := make(map[string]string) // Create an empty map
+	return c.startProcess(tempProcessDir, processDef.Terminal, stdioSet, emptyMap, args...)
 }
 
 // startProcess performs the operations necessary to start a container process
@@ -339,7 +340,8 @@ func (c *container) runExecCommand(processDef *oci.Process, stdioSet *stdio.Conn
 func (c *container) startProcess(
 	tempProcessDir string,
 	hasTerminal bool,
-	stdioSet *stdio.ConnectionSet, initialArgs ...string,
+	stdioSet *stdio.ConnectionSet, annotations map[string]string,
+	initialArgs ...string,
 ) (p *process, err error) {
 	args := initialArgs
 
@@ -368,16 +370,28 @@ func (c *container) startProcess(
 	cmd := runcCommandLog(logPath, args...)
 
 	var pipeRelay *stdio.PipeRelay
+	var fifoPipe *os.File
 
-	cmd1 := exec.Command("touch", "/tmp/output.txt")
-	if err2 := cmd1.Run(); err2 != nil {
-		logrus.Infof("error creating output file in tmp", fmt.Errorf("outer error context: %w", err2).Error())
-	}
+	pipeName, exists := annotations["io.microsoft.bmc.logging.pipelocation"]
+	logrus.Infof("++++ annotations pipelocation in container.go: \"%s\" ++++", pipeName)
+	if exists {
+		logrus.Info("++++ in if exists of pipelocation ++++")
+		_, err = os.Stat(pipeName)
+		if err != nil {
+			// fifo pipe does not exist, create one
+			logrus.Infof("++++ creating pipe in container.go: \"%s\" ++++", pipeName)
+			err = syscall.Mkfifo(pipeName, 0666)
+			logrus.Infof("Error creating named pipe:", fmt.Errorf("outer error context: %w", err).Error())
+		}
 
-	//outputFile, _ := os.OpenFile("/tmp/output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	pipe, err3 := os.OpenFile("/tmp/pipe1", os.O_RDWR|os.O_APPEND, os.ModeNamedPipe)
-	if err3 != nil {
-		logrus.Infof("Error opening named pipe:", fmt.Errorf("outer error context: %w", err3).Error())
+		// pipe either exist before hand or we have created one above
+		logrus.Infof("++++ opening pipe in container.go: \"%s\" ++++", pipeName)
+		fifoPipe, err = os.OpenFile(pipeName, os.O_RDWR|os.O_APPEND, os.ModeNamedPipe)
+		if err != nil {
+			logrus.Infof("Error opening named pipe:", fmt.Errorf("outer error context: %w", err).Error())
+		}
+
+		logrus.Infof("++++ opened pipe in container.go: \"%s\" ++++", pipeName)
 	}
 
 	if !hasTerminal {
@@ -396,39 +410,36 @@ func (c *container) startProcess(
 			cmd.Stdin = fileSet.In
 		}
 		if fileSet.Out != nil {
-			//cmd.Stdout = outputFile
-			cmd.Stdout = pipe
+			cmd.Stdout = fileSet.Out
 		}
 		if fileSet.Err != nil {
 			cmd.Stderr = fileSet.Err
 		}
 	}
 
-	fmt.Println("Pipe FD: " + strconv.Itoa(int(pipe.Fd())))
-	logrus.Infof("Pipe FD: " + strconv.Itoa(int(pipe.Fd())))
+	isLoggingSideCarContainerStr, exists := annotations["io.microsoft.bmc.logging.isLoggingSideCarContainer"]
+	logrus.Infof("++++ annotations isLoggingSideCarContainer in container.go: \"%s\" ++++", isLoggingSideCarContainerStr)
+	if exists {
+		logrus.Info("++++ in if exists of isLoggingSideCarContainerStr ++++")
+		isLoggingSideCarContainer, _ := strconv.ParseBool(isLoggingSideCarContainerStr)
+		if !isLoggingSideCarContainer {
+			// workload container needs to redirect stdout and stderr to fifo pipe.
+			logrus.Info("++++ redirecting stdout for workload container ++++")
+			cmd.Stdout = fifoPipe
+			cmd.Stderr = fifoPipe
 
-	cmd.ExtraFiles = []*os.File{pipe}
+			time.Sleep(5 * time.Second)
+		} else {
+			// logging side car container needs to know the pipe fd.
+			logrus.Info("++++ passing pipe fd for logging container. ++++")
+			cmd.ExtraFiles = []*os.File{fifoPipe}
+		}
+	}
 
 	if err := cmd.Run(); err != nil {
 		runcErr := getRuncLogError(logPath)
 		return nil, errors.Wrapf(runcErr, "failed to run runc create/exec call for container %s with %v", c.id, err)
 	}
-
-	/*if err1 != nil {
-		//e := fmt.Errorf("outer error context: %w", err)
-		logrus.Infof("error getting stdout of cmd", fmt.Errorf("outer error context: %w", err1).Error())
-	}
-
-	_, err5 := io.Copy(outputFile, cmdstdout)
-	if err5 != nil {
-		logrus.Infof("Error redirecting stdout to file", fmt.Errorf("outer error context: %w", err5).Error())
-	}
-
-	// Wait for the command to complete
-	if err6 := cmd.Wait(); err6 != nil {
-		logrus.Infof("Error waiting for cmd:", fmt.Errorf("outer error context: %w", err6).Error())
-		fmt.Println(err6)
-	}*/
 
 	var ttyRelay *stdio.TtyRelay
 	if hasTerminal {

@@ -181,7 +181,6 @@ func main() {
 		"",
 		"Logging Target: An optional file name/path. Omit for console output.")
 	logFormat := flag.String("log-format", "text", "Logging Format: text or json")
-	fd := flag.String("fd", "text", "file descriptor number to pass on to child process")
 	useInOutErr := flag.Bool("use-inouterr",
 		false,
 		"If true use stdin/stdout for bridge communication and stderr for logging")
@@ -214,11 +213,6 @@ func main() {
 	if *v4 {
 		trace.ApplyConfig(trace.Config{DefaultSampler: trace.AlwaysSample()})
 		trace.RegisterExporter(&oc.LogrusExporter{})
-	}
-
-	if *fd == "" {
-		logrus.Info("fd is empty...")
-		fmt.Println("fd is empty...")
 	}
 
 	logrus.AddHook(log.NewHook())

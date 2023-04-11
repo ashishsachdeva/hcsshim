@@ -156,7 +156,6 @@ func (r *runcRuntime) waitOnProcess(pid int) (int, error) {
 
 // runCreateCommand sets up the arguments for calling runc create.
 func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *stdio.ConnectionSet) (runtime.Container, error) {
-	logrus.Info("++++ In runCreateCommand in runc.go ++++")
 	c := &container{r: r, id: id}
 	if err := r.makeContainerDir(id); err != nil {
 		return nil, err
@@ -194,10 +193,6 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 		_ = os.MkdirAll(cwd, 0755)
 	}
 
-	logrus.Infof("++++ bundlePath in runCreateCommand in runc.go : \"%s\" ++++", bundlePath)
-
-	logrus.Infof("++++ Hostname in spec in runCreateCommand in runc.go : \"%s\" ++++", spec.Hostname)
-
 	if spec.Annotations != nil {
 		logrus.Info("++++ Annotations present in spec in runCreateCommand.. ++++")
 		annotations, _ := json.Marshal(spec.Annotations)
@@ -214,7 +209,7 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 	args := []string{"create", "-b", bundlePath, "--no-pivot"}
 	args = append(args, "--preserve-fds", "1")
 
-	p, err := c.startProcess(tempProcessDir, spec.Process.Terminal, stdioSet, args...)
+	p, err := c.startProcess(tempProcessDir, spec.Process.Terminal, stdioSet, spec.Annotations, args...)
 	if err != nil {
 		return nil, err
 	}
