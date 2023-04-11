@@ -428,7 +428,9 @@ func (c *container) startProcess(
 			cmd.Stdout = fifoPipe
 			cmd.Stderr = fifoPipe
 
+			logrus.Info("++++ adding time dealy ++++")
 			time.Sleep(5 * time.Second)
+			logrus.Info("++++ time delay done ++++")
 		} else {
 			// logging side car container needs to know the pipe fd.
 			logrus.Info("++++ passing pipe fd for logging container. ++++")
@@ -436,6 +438,7 @@ func (c *container) startProcess(
 		}
 	}
 
+	logrus.Info("++++ before running cnd.run() ++++")
 	if err := cmd.Run(); err != nil {
 		runcErr := getRuncLogError(logPath)
 		return nil, errors.Wrapf(runcErr, "failed to run runc create/exec call for container %s with %v", c.id, err)
