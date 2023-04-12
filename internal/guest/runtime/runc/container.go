@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -372,6 +373,13 @@ func (c *container) startProcess(
 	var pipeRelay *stdio.PipeRelay
 	var fifoPipe *os.File
 
+	cmd1 := exec.Command("touch", "/tmp/output.txt")
+	if err2 := cmd1.Run(); err2 != nil {
+		logrus.Infof("error creating output file in tmp", fmt.Errorf("outer error context: %w", err2).Error())
+	}
+
+	outputFile, _ := os.OpenFile("/tmp/output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
 	pipeName, exists := annotations["io.microsoft.bmc.logging.pipelocation"]
 	logrus.Infof("++++ annotations pipelocation in container.go: \"%s\" ++++", pipeName)
 	if exists {
@@ -381,7 +389,9 @@ func (c *container) startProcess(
 			// fifo pipe does not exist, create one
 			logrus.Infof("++++ creating pipe in container.go: \"%s\" ++++", pipeName)
 			err = syscall.Mkfifo(pipeName, 0666)
-			logrus.Infof("Error creating named pipe:", fmt.Errorf("outer error context: %w", err).Error())
+			if err != nil {
+				logrus.Infof("Error creating named pipe:", fmt.Errorf("outer error context: %w", err).Error())
+			}
 		}
 
 		// pipe either exist before hand or we have created one above
@@ -410,10 +420,10 @@ func (c *container) startProcess(
 			cmd.Stdin = fileSet.In
 		}
 		if fileSet.Out != nil {
-			cmd.Stdout = fileSet.Out
+			cmd.Stdout = outputFile
 		}
 		if fileSet.Err != nil {
-			cmd.Stderr = fileSet.Err
+			cmd.Stderr = outputFile
 		}
 	}
 
