@@ -5,12 +5,14 @@ package runc
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -326,7 +328,8 @@ func (c *container) runExecCommand(processDef *oci.Process, stdioSet *stdio.Conn
 
 	args := []string{"exec"}
 	args = append(args, "-d", "--process", filepath.Join(tempProcessDir, "process.json"))
-	return c.startProcess(tempProcessDir, processDef.Terminal, stdioSet, args...)
+	emptyMap := make(map[string]string) // Create an empty map
+	return c.startProcess(tempProcessDir, processDef.Terminal, stdioSet, emptyMap, args...)
 }
 
 // startProcess performs the operations necessary to start a container process
@@ -337,7 +340,8 @@ func (c *container) runExecCommand(processDef *oci.Process, stdioSet *stdio.Conn
 func (c *container) startProcess(
 	tempProcessDir string,
 	hasTerminal bool,
-	stdioSet *stdio.ConnectionSet, initialArgs ...string,
+	stdioSet *stdio.ConnectionSet, annotations map[string]string,
+	initialArgs ...string,
 ) (p *process, err error) {
 	args := initialArgs
 
@@ -366,6 +370,26 @@ func (c *container) startProcess(
 	cmd := runcCommandLog(logPath, args...)
 
 	var pipeRelay *stdio.PipeRelay
+	var fifoPipe *os.File
+
+	pipeName, exists := annotations["io.microsoft.bmc.logging.pipelocation"]
+	if exists {
+		_, err = os.Stat(pipeName)
+		if err != nil {
+			// fifo pipe does not exist, create one
+			err = syscall.Mkfifo(pipeName, 0666)
+			if err != nil {
+				logrus.Infof("Error creating named pipe:", fmt.Errorf("outer error context: %w", err).Error())
+			}
+		}
+
+		// pipe either exist before hand or we have created one above
+		fifoPipe, err = os.OpenFile(pipeName, os.O_RDWR|os.O_APPEND, os.ModeNamedPipe)
+		if err != nil {
+			logrus.Infof("Error opening named pipe:", fmt.Errorf("outer error context: %w", err).Error())
+		}
+	}
+
 	if !hasTerminal {
 		pipeRelay, err = stdio.NewPipeRelay(stdioSet)
 		if err != nil {
@@ -386,6 +410,21 @@ func (c *container) startProcess(
 		}
 		if fileSet.Err != nil {
 			cmd.Stderr = fileSet.Err
+		}
+	}
+
+	isLoggingSideCarContainerStr, exists := annotations["io.microsoft.bmc.logging.isLoggingSideCarContainer"]
+	if exists {
+		isLoggingSideCarContainer, _ := strconv.ParseBool(isLoggingSideCarContainerStr)
+		if !isLoggingSideCarContainer {
+			// workload container needs to redirect stdout and stderr to fifo pipe.
+			cmd.Stdout = fifoPipe
+			cmd.Stderr = fifoPipe
+
+			time.Sleep(2 * time.Second)
+		} else {
+			// logging side car container needs to know the pipe fd.
+			cmd.ExtraFiles = []*os.File{fifoPipe}
 		}
 	}
 
