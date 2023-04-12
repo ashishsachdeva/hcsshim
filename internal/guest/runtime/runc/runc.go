@@ -14,7 +14,6 @@ import (
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 
 	"github.com/Microsoft/hcsshim/internal/guest/commonutils"
@@ -191,19 +190,6 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 		cwd := path.Join(bundlePath, "rootfs", spec.Process.Cwd)
 		// Intentionally ignore the error.
 		_ = os.MkdirAll(cwd, 0755)
-	}
-
-	if spec.Annotations != nil {
-		logrus.Info("++++ Annotations present in spec in runCreateCommand.. ++++")
-		annotations, _ := json.Marshal(spec.Annotations)
-		logrus.Infof("++++ annotations in runCreateCommand in runc.go: \"%s\" ++++", annotations)
-	} else {
-		logrus.Info("annotations nil in runCreateCommand in runc.go")
-	}
-
-	if spec.Process.Env != nil {
-		logrus.Info("++++ Env Vars present in spec in runCreateCommand.. ++++")
-		logrus.Infof("++++ Env Vars in runCreateCommand in runc.go: \"%s\" ++++", strings.Join(spec.Process.Env, ", "))
 	}
 
 	args := []string{"create", "-b", bundlePath, "--no-pivot"}

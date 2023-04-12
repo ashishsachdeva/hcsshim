@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -373,21 +372,11 @@ func (c *container) startProcess(
 	var pipeRelay *stdio.PipeRelay
 	var fifoPipe *os.File
 
-	cmd1 := exec.Command("touch", "/tmp/output.txt")
-	if err2 := cmd1.Run(); err2 != nil {
-		logrus.Infof("error creating output file in tmp", fmt.Errorf("outer error context: %w", err2).Error())
-	}
-
-	outputFile, _ := os.OpenFile("/tmp/output.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-
 	pipeName, exists := annotations["io.microsoft.bmc.logging.pipelocation"]
-	logrus.Infof("++++ annotations pipelocation in container.go: \"%s\" ++++", pipeName)
 	if exists {
-		logrus.Info("++++ in if exists of pipelocation ++++")
 		_, err = os.Stat(pipeName)
 		if err != nil {
 			// fifo pipe does not exist, create one
-			logrus.Infof("++++ creating pipe in container.go: \"%s\" ++++", pipeName)
 			err = syscall.Mkfifo(pipeName, 0666)
 			if err != nil {
 				logrus.Infof("Error creating named pipe:", fmt.Errorf("outer error context: %w", err).Error())
@@ -395,13 +384,10 @@ func (c *container) startProcess(
 		}
 
 		// pipe either exist before hand or we have created one above
-		logrus.Infof("++++ opening pipe in container.go: \"%s\" ++++", pipeName)
 		fifoPipe, err = os.OpenFile(pipeName, os.O_RDWR|os.O_APPEND, os.ModeNamedPipe)
 		if err != nil {
 			logrus.Infof("Error opening named pipe:", fmt.Errorf("outer error context: %w", err).Error())
 		}
-
-		logrus.Infof("++++ opened pipe in container.go: \"%s\" ++++", pipeName)
 	}
 
 	if !hasTerminal {
@@ -420,35 +406,28 @@ func (c *container) startProcess(
 			cmd.Stdin = fileSet.In
 		}
 		if fileSet.Out != nil {
-			cmd.Stdout = outputFile
+			cmd.Stdout = fileSet.Out
 		}
 		if fileSet.Err != nil {
-			cmd.Stderr = outputFile
+			cmd.Stderr = fileSet.Err
 		}
 	}
 
 	isLoggingSideCarContainerStr, exists := annotations["io.microsoft.bmc.logging.isLoggingSideCarContainer"]
-	logrus.Infof("++++ annotations isLoggingSideCarContainer in container.go: \"%s\" ++++", isLoggingSideCarContainerStr)
 	if exists {
-		logrus.Info("++++ in if exists of isLoggingSideCarContainerStr ++++")
 		isLoggingSideCarContainer, _ := strconv.ParseBool(isLoggingSideCarContainerStr)
 		if !isLoggingSideCarContainer {
 			// workload container needs to redirect stdout and stderr to fifo pipe.
-			logrus.Info("++++ redirecting stdout for workload container ++++")
 			cmd.Stdout = fifoPipe
 			cmd.Stderr = fifoPipe
 
-			logrus.Info("++++ adding time dealy ++++")
-			time.Sleep(5 * time.Second)
-			logrus.Info("++++ time delay done ++++")
+			time.Sleep(2 * time.Second)
 		} else {
 			// logging side car container needs to know the pipe fd.
-			logrus.Info("++++ passing pipe fd for logging container. ++++")
 			cmd.ExtraFiles = []*os.File{fifoPipe}
 		}
 	}
 
-	logrus.Info("++++ before running cnd.run() ++++")
 	if err := cmd.Run(); err != nil {
 		runcErr := getRuncLogError(logPath)
 		return nil, errors.Wrapf(runcErr, "failed to run runc create/exec call for container %s with %v", c.id, err)
