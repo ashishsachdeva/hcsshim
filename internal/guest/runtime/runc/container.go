@@ -421,6 +421,7 @@ func (c *container) startProcess(
 			cmd.Stdout = fifoPipe
 			cmd.Stderr = fifoPipe
 
+			// this is needed to make sure that logging container starts first and starts listening to the fifo pipe.
 			time.Sleep(2 * time.Second)
 		} else {
 			// logging side car container needs to know the pipe fd.
