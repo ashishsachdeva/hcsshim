@@ -404,8 +404,10 @@ func (c *container) startProcess(
 	var stdoutFifoPipe, stderrFifoPipe *os.File
 	if annotations != nil {
 		pipeNameSuffix, exists := annotations["io.microsoft.bmc.logging.pipelocation"]
-		stdoutPipeName := "/run/gcs/sidecarlogs/" + pipeNameSuffix + "-stdout"
-		stderrPipeName := "/run/gcs/sidecarlogs/" + pipeNameSuffix + "-stderr"
+		pipeDirectory := "/run/gcs/containerlogs/"
+		stdoutPipeName := pipeDirectory + pipeNameSuffix + "-stdout"
+		stderrPipeName := pipeDirectory + pipeNameSuffix + "-stderr"
+		os.MkdirAll(pipeDirectory, os.ModePerm)
 		if exists {
 			_, err = os.Stat(stdoutPipeName)
 			if err != nil {
