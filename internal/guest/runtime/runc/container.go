@@ -414,7 +414,9 @@ func (c *container) startProcess(
 				// fifo pipe does not exist, create one
 				err = syscall.Mkfifo(stdoutPipeName, 0666)
 				if err != nil {
-					logrus.Infof("Error creating named pipe:", fmt.Errorf("outer error context: %w", err).Error())
+					msg := "Error creating named pipe:" + fmt.Errorf("outer error context: %w", err).Error()
+					logrus.Infof(msg)
+					return nil, errors.Wrapf(err, msg)
 				}
 			}
 
@@ -423,7 +425,9 @@ func (c *container) startProcess(
 				// fifo pipe does not exist, create one
 				err = syscall.Mkfifo(stderrPipeName, 0666)
 				if err != nil {
-					logrus.Infof("Error creating named pipe:", fmt.Errorf("outer error context: %w", err).Error())
+					msg := "Error creating named pipe:" + fmt.Errorf("outer error context: %w", err).Error()
+					logrus.Infof(msg)
+					return nil, errors.Wrapf(err, msg)
 				}
 			}
 
