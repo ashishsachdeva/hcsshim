@@ -339,7 +339,8 @@ func (c *container) runExecCommand(processDef *oci.Process, stdioSet *stdio.Conn
 func (c *container) startProcess(
 	tempProcessDir string,
 	hasTerminal bool,
-	stdioSet *stdio.ConnectionSet, annotations map[string]string,
+	stdioSet *stdio.ConnectionSet,
+	annotations map[string]string,
 	initialArgs ...string,
 ) (p *process, err error) {
 	args := initialArgs
@@ -366,17 +367,9 @@ func (c *container) startProcess(
 	}
 	args = append(args, c.id)
 
-	if annotations != nil {
-		_, exists := annotations["io.microsoft.bmc.logging.pipelocation"]
-		if exists {
-			args = append(args, "--preserve-fds", "2")
-		}
-	}
-
 	cmd := runcCommandLog(logPath, args...)
 
 	var pipeRelay *stdio.PipeRelay
-
 	if !hasTerminal {
 		pipeRelay, err = stdio.NewPipeRelay(stdioSet)
 		if err != nil {
@@ -400,23 +393,28 @@ func (c *container) startProcess(
 		}
 	}
 
-	// This is to enabling container logging in Bare Metal Containers. This is in experimental stage now and need to be revisited.
+	// This is for enabling container logging via side car feature. This is in experimental stage now and need to be revisited.
 	var stdoutFifoPipe, stderrFifoPipe *os.File
 	if annotations != nil {
 		pipeNameSuffix, exists := annotations["io.microsoft.bmc.logging.pipelocation"]
-		pipeDirectory := "/run/gcs/containerlogs/"
-		stdoutPipeName := pipeDirectory + pipeNameSuffix + "-stdout"
-		stderrPipeName := pipeDirectory + pipeNameSuffix + "-stderr"
-		os.MkdirAll(pipeDirectory, os.ModePerm)
 		if exists {
+			if hasTerminal {
+				return nil, fmt.Errorf("logging via side car and TTY are not supported together")
+			}
+			pipeDirectory := "/run/gcs/containerlogs/"
+			stdoutPipeName := pipeDirectory + pipeNameSuffix + "-stdout"
+			stderrPipeName := pipeDirectory + pipeNameSuffix + "-stderr"
+			err = os.MkdirAll(pipeDirectory, 0755)
+			if err != nil {
+				return nil, fmt.Errorf("error creating log directory %s for logging pipe fifo: %w", pipeDirectory, err)
+			}
+
 			_, err = os.Stat(stdoutPipeName)
 			if err != nil {
 				// fifo pipe does not exist, create one
 				err = syscall.Mkfifo(stdoutPipeName, 0666)
 				if err != nil {
-					msg := "Error creating named pipe:" + fmt.Errorf("outer error context: %w", err).Error()
-					logrus.Infof(msg)
-					return nil, errors.Wrapf(err, msg)
+					return nil, fmt.Errorf("error creating fifo %s: %w", stdoutPipeName, err)
 				}
 			}
 
@@ -425,31 +423,28 @@ func (c *container) startProcess(
 				// fifo pipe does not exist, create one
 				err = syscall.Mkfifo(stderrPipeName, 0666)
 				if err != nil {
-					msg := "Error creating named pipe:" + fmt.Errorf("outer error context: %w", err).Error()
-					logrus.Infof(msg)
-					return nil, errors.Wrapf(err, msg)
+					return nil, fmt.Errorf("error creating fifo %s: %w", stderrPipeName, err)
 				}
 			}
 
 			// pipe either exist before hand or we have created one above
 			stdoutFifoPipe, err = os.OpenFile(stdoutPipeName, os.O_RDWR|os.O_APPEND, os.ModeNamedPipe)
 			if err != nil {
-				msg := "Error opening named pipe:" + fmt.Errorf("outer error context: %w", err).Error()
-				logrus.Infof(msg)
-				return nil, errors.Wrapf(err, msg)
+				return nil, fmt.Errorf("error opening fifo %s: %w", stdoutPipeName, err)
 			}
 
 			stderrFifoPipe, err = os.OpenFile(stderrPipeName, os.O_RDWR|os.O_APPEND, os.ModeNamedPipe)
 			if err != nil {
-				msg := "Error opening named pipe:" + fmt.Errorf("outer error context: %w", err).Error()
-				logrus.Infof(msg)
-				return nil, errors.Wrapf(err, msg)
+				return nil, fmt.Errorf("error opening fifo %s: %w", stderrPipeName, err)
 			}
 		}
 
 		isLoggingSideCarContainerStr, exists := annotations["io.microsoft.bmc.logging.isLoggingSideCarContainer"]
 		if exists {
-			isLoggingSideCarContainer, _ := strconv.ParseBool(isLoggingSideCarContainerStr)
+			isLoggingSideCarContainer, err := strconv.ParseBool(isLoggingSideCarContainerStr)
+			if err != nil {
+				return nil, fmt.Errorf("error parsing flag isLoggingSideCarContainer: %w", err)
+			}
 			if !isLoggingSideCarContainer {
 				// workload container needs to redirect stdout and stderr to fifo pipe.
 				cmd.Stdout = stdoutFifoPipe
@@ -459,6 +454,7 @@ func (c *container) startProcess(
 				time.Sleep(2 * time.Second)
 			} else {
 				// logging side car container needs to know the pipe fd.
+				cmd.Args = append(cmd.Args, "--preserve-fds", "2")
 				cmd.ExtraFiles = []*os.File{stdoutFifoPipe, stderrFifoPipe}
 			}
 		}
