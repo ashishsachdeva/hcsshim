@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
 	oci "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
@@ -449,9 +448,6 @@ func (c *container) startProcess(
 				// workload container needs to redirect stdout and stderr to fifo pipe.
 				cmd.Stdout = stdoutFifoPipe
 				cmd.Stderr = stderrFifoPipe
-
-				// this is needed to make sure that logging container starts first and starts listening to the fifo pipe.
-				time.Sleep(2 * time.Second)
 			} else {
 				// logging side car container needs to know the pipe fd.
 				cmd.Args = append(cmd.Args, "--preserve-fds", "2")
