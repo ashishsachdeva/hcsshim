@@ -616,13 +616,13 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id string, endpoint *hns.HNSEn
 				"gateway":      s.IPv6GatewayAddress,
 			}).Debug("adding IPv6 settings")
 		}
-		if uvm.isNetworkNamespaceSupported() {
-			request.GuestRequest = guestrequest.ModificationRequest{
-				ResourceType: guestresource.ResourceTypeNetwork,
-				RequestType:  guestrequest.RequestTypeAdd,
-				Settings:     s,
-			}
+		//if uvm.isNetworkNamespaceSupported() {
+		request.GuestRequest = guestrequest.ModificationRequest{
+			ResourceType: guestresource.ResourceTypeNetwork,
+			RequestType:  guestrequest.RequestTypeAdd,
+			Settings:     s,
 		}
+		//}
 	}
 
 	if err := uvm.modify(ctx, &request); err != nil {
@@ -695,9 +695,9 @@ func (uvm *UtilityVM) UpdateNIC(ctx context.Context, id string, settings *hcssch
 // AddNICInGuest makes a request to setup a network adapter's interface inside the lcow guest.
 // This is primarily used for adding NICs in the guest that have been VPCI assigned.
 func (uvm *UtilityVM) AddNICInGuest(ctx context.Context, cfg *guestresource.LCOWNetworkAdapter) error {
-	if !uvm.isNetworkNamespaceSupported() {
+	/*if !uvm.isNetworkNamespaceSupported() {
 		return fmt.Errorf("guest does not support network namespaces and cannot add VF NIC %+v", cfg)
-	}
+	}*/
 	request := hcsschema.ModifySettingRequest{}
 	request.GuestRequest = guestrequest.ModificationRequest{
 		ResourceType: guestresource.ResourceTypeNetwork,
