@@ -593,7 +593,8 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id string, endpoint *hns.HNSEn
 	} else {
 		// Verify this version of LCOW supports Network HotAdd
 
-		log.G(ctx).Debug("++++ In linux os check addNIC +++++")
+		// log.G(ctx).Debug("++++ In linux os check addNIC +++++")
+		logrus.Info("++++ In linux os check addNIC +++++")
 
 		s := &guestresource.LCOWNetworkAdapter{
 			NamespaceID:     endpoint.Namespace.ID,
@@ -620,7 +621,8 @@ func (uvm *UtilityVM) addNIC(ctx context.Context, id string, endpoint *hns.HNSEn
 			}).Debug("adding IPv6 settings")
 		}
 
-		log.G(ctx).Debug("++++ addNIC: removing namespace check 1 +++++")
+		// log.G(ctx).Debug("++++ addNIC: removing namespace check 1 +++++")
+		logrus.Info("++++ addNIC: removing namespace check 1 +++++")
 
 		//if uvm.isNetworkNamespaceSupported() {
 		request.GuestRequest = guestrequest.ModificationRequest{
@@ -702,7 +704,8 @@ func (uvm *UtilityVM) UpdateNIC(ctx context.Context, id string, settings *hcssch
 // This is primarily used for adding NICs in the guest that have been VPCI assigned.
 func (uvm *UtilityVM) AddNICInGuest(ctx context.Context, cfg *guestresource.LCOWNetworkAdapter) error {
 
-	log.G(ctx).Debug("++++ AddNICInGuest: removing namespace check 2 +++++")
+	//log.G(ctx).Debug("++++ AddNICInGuest: removing namespace check 2 +++++")
+	logrus.Info("++++ AddNICInGuest: removing namespace check 2 +++++")
 
 	/*if !uvm.isNetworkNamespaceSupported() {
 		return fmt.Errorf("guest does not support network namespaces and cannot add VF NIC %+v", cfg)
