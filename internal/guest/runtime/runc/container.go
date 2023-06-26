@@ -5,6 +5,7 @@ package runc
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -390,7 +391,11 @@ func (c *container) startProcess(
 	}
 
 	if err := cmd.Run(); err != nil {
+		logrus.Info("++++ err in container.go : %v ++++", err)
+		fmt.Errorf("++++ err in container.go: %w ++++", err)
 		runcErr := getRuncLogError(logPath)
+		logrus.Info("++++ runcErr in container.go : %v ++++", err)
+		fmt.Errorf("++++ runcErr in container.go: %w ++++", err)
 		return nil, errors.Wrapf(runcErr, "failed to run runc create/exec call for container %s with %v", c.id, err)
 	}
 
@@ -400,6 +405,8 @@ func (c *container) startProcess(
 		master, err = c.r.getMasterFromSocket(sockListener)
 		if err != nil {
 			_ = cmd.Process.Kill()
+			logrus.Info("++++ err in container.go 1: %v ++++", err)
+			fmt.Errorf("++++ err in container.go 1: %w ++++", err)
 			return nil, errors.Wrapf(err, "failed to get pty master for process in container %s", c.id)
 		}
 		// Keep master open for the relay unless there is an error.
@@ -414,9 +421,13 @@ func (c *container) startProcess(
 	// Rename the process's directory to its pid.
 	pid, err := c.r.readPidFile(filepath.Join(tempProcessDir, "pid"))
 	if err != nil {
+		logrus.Info("++++ err in container.go 2: %v ++++", err)
+		fmt.Errorf("++++ err in container.go 2: %w ++++", err)
 		return nil, err
 	}
 	if err := os.Rename(tempProcessDir, c.r.getProcessDir(c.id, pid)); err != nil {
+		logrus.Info("++++ err in container.go 3: %v ++++", err)
+		fmt.Errorf("++++ err in container.go 3: %w ++++", err)
 		return nil, err
 	}
 

@@ -19,6 +19,8 @@ import (
 	"github.com/Microsoft/hcsshim/internal/guest/commonutils"
 	"github.com/Microsoft/hcsshim/internal/guest/runtime"
 	"github.com/Microsoft/hcsshim/internal/guest/stdio"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -200,6 +202,12 @@ func (r *runcRuntime) runCreateCommand(id string, bundlePath string, stdioSet *s
 
 	// Write pid to initpid file for container.
 	containerDir := r.getContainerDir(id)
+
+	logrus.Info("++++ checking if process p is nil ++++")
+	if p == nil {
+		logrus.Info("++++ process p is nil ++++")
+	}
+
 	if err := os.WriteFile(filepath.Join(containerDir, initPidFilename), []byte(strconv.Itoa(p.pid)), 0777); err != nil {
 		return nil, err
 	}
