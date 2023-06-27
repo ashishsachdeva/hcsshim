@@ -457,11 +457,10 @@ func (c *container) startProcess(
 	}
 
 	if err := cmd.Run(); err != nil {
-		logrus.Info("++++ err in container.go : %v ++++", err)
-		fmt.Errorf("++++ err in container.go: %w ++++", err)
+		logrus.Info("++++ new err in container.go : %v ++++", err)
+		logrus.Info("++++ Env PATH : %v ++++", os.Getenv("PATH"))
 		runcErr := getRuncLogError(logPath)
-		logrus.Info("++++ runcErr in container.go : %v ++++", err)
-		fmt.Errorf("++++ runcErr in container.go: %w ++++", err)
+		logrus.Info("++++ new runcErr in container.go : %v ++++", err)
 		return nil, errors.Wrapf(runcErr, "failed to run runc create/exec call for container %s with %v", c.id, err)
 	}
 
