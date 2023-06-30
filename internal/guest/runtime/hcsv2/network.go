@@ -6,6 +6,7 @@ package hcsv2
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -245,7 +246,7 @@ type nicInNamespace struct {
 // assignToPid assigns `nin.adapter`, represented by `nin.ifname` to `pid`.
 func (nin *nicInNamespace) assignToPid(ctx context.Context, pid int) (err error) {
 	ctx, span := oc.StartSpan(ctx, "nicInNamespace::assignToPid")
-	logrus.Info("++++ in nicInNamespace::assignToPid method in hcsv2 betwork.go ++++")
+	logrus.Info("++++ in nicInNamespace::assignToPid method in hcsv2 network.go ++++")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(
@@ -287,6 +288,57 @@ func (nin *nicInNamespace) assignToPid(ctx context.Context, pid int) (err error)
 	/*if err := network.DoInNetNS(ns, netNSCfg); err != nil {
 		return errors.Wrapf(err, "failed to configure adapter aid: %s, if id: %s", nin.adapter.ID, nin.ifname)
 	}*/
+
 	nin.assignedPid = pid
+
+	logrus.Info("++++ creating/updating resolv.conf file ++++")
+	filePath := "/etc/resolv.conf"
+
+	// Check if the file exists
+	_, err = os.Stat(filePath)
+	if err == nil {
+
+		logrus.Info("++++ File exist.. updating! ++++ ")
+
+		file, err1 := os.OpenFile(filePath, os.O_WRONLY|os.O_TRUNC, 0644)
+		if err1 != nil {
+			logrus.Info("++++ Failed to open file: %v\n ++++ ", err1)
+		}
+		defer file.Close()
+
+		// Write the content to the file
+		content := `nameserver 8.8.8.8
+		nameserver 8.8.4.4`
+		_, err1 = file.WriteString(content)
+		if err1 != nil {
+			logrus.Info("++++ Failed to write to file: %v\n ++++ ", err1)
+		}
+
+		logrus.Info("++++ File updated successfully! ++++ ")
+
+	} else if os.IsNotExist(err) {
+
+		logrus.Info("++++ File do not exist.. creating & updating! ++++ ")
+
+		file, err1 := os.Create(filePath)
+		if err1 != nil {
+			logrus.Info("++++ Failed to create file: %v\n ++++ ", err1)
+		}
+		defer file.Close()
+
+		// Write the content to the file
+		content := `nameserver 8.8.8.8
+		nameserver 8.8.4.4`
+		_, err1 = file.WriteString(content)
+		if err1 != nil {
+			logrus.Info("++++ Failed to write to file: %v\n ++++ ", err1)
+		}
+		logrus.Info("++++ File created and updated successfully! ++++ ")
+
+	} else {
+		// Other error occurred
+		logrus.Info("++++ Failed to access file: %v\n ++++ ", err)
+	}
+
 	return nil
 }
