@@ -245,7 +245,7 @@ type nicInNamespace struct {
 // assignToPid assigns `nin.adapter`, represented by `nin.ifname` to `pid`.
 func (nin *nicInNamespace) assignToPid(ctx context.Context, pid int) (err error) {
 	ctx, span := oc.StartSpan(ctx, "nicInNamespace::assignToPid")
-	logrus.Info("++++ in nicInNamespace::assignToPid method in hcsv2 betwork.go", err)
+	logrus.Info("++++ in nicInNamespace::assignToPid method in hcsv2 betwork.go ++++")
 	defer span.End()
 	defer func() { oc.SetSpanStatus(span, err) }()
 	span.AddAttributes(
