@@ -14,6 +14,8 @@ import (
 	"github.com/Microsoft/hcsshim/internal/protocol/guestrequest"
 	"github.com/Microsoft/hcsshim/internal/protocol/guestresource"
 	"github.com/Microsoft/hcsshim/pkg/ctrdtaskapi"
+
+	"github.com/sirupsen/logrus"
 )
 
 type ConfidentialUVMOpt func(ctx context.Context, r *guestresource.LCOWConfidentialOptions) error
@@ -74,6 +76,9 @@ func WithUVMReferenceInfo(referenceRoot string, referenceName string) Confidenti
 // This has to happen before we start mounting things or generally changing
 // the state of the UVM after is has been measured at startup
 func (uvm *UtilityVM) SetConfidentialUVMOptions(ctx context.Context, opts ...ConfidentialUVMOpt) error {
+
+	logrus.Debugf("++++ in uvm security_policy.go SetConfidentialUVMOptions method ++++")
+
 	if uvm.operatingSystem != "linux" {
 		return errNotSupported
 	}
@@ -97,6 +102,7 @@ func (uvm *UtilityVM) SetConfidentialUVMOptions(ctx context.Context, opts ...Con
 	}
 
 	if err := uvm.modify(ctx, modification); err != nil {
+		logrus.Debugf("++++ uvm::Policy: failed to modify utility VM configuration: %s ++++", err)
 		return fmt.Errorf("uvm::Policy: failed to modify utility VM configuration: %s", err)
 	}
 

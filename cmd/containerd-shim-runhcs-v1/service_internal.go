@@ -22,6 +22,7 @@ import (
 	google_protobuf1 "github.com/gogo/protobuf/types"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 )
 
 var empty = &google_protobuf1.Empty{}
@@ -165,25 +166,34 @@ func (s *service) createInternal(ctx context.Context, req *task.CreateTaskReques
 	s.cl.Lock()
 	if s.isSandbox {
 		pod, err := s.getPod()
+		logrus.Debugf("++++ try getting existing pod ++++")
 		if err == nil {
+			logrus.Debugf("++++ pod exist.. creating task ++++")
 			// The POD sandbox was previously created. Unlock and forward to the POD
 			s.cl.Unlock()
 			t, err := pod.CreateTask(ctx, req, &spec)
+			logrus.Debugf("++++ done creating kyrpton task in service internal..  ++++")
 			if err != nil {
+				logrus.Debugf("++++ returning error after creating kyrpton task call in service internal.. %v ++++", err)
 				return nil, err
 			}
+			logrus.Debugf("++++ done creating kyrpton task in service internal.. calling get exec ++++")
 			e, _ := t.GetExec("")
+			logrus.Debugf("++++ done getting exec in service internal ++++")
 			resp.Pid = uint32(e.Pid())
+			logrus.Debugf("++++ returning from service internal ++++")
 			return resp, nil
 		}
 
 		// Determine what type of pod should be created.
+		logrus.Debugf("++++ check for krypton pod annotation ++++")
 		isKryptonPod, err := oci.IsKryptonSandboxMode(spec.Annotations)
 		if err != nil {
 			s.cl.Unlock()
 			return nil, err
 		}
 		if isKryptonPod {
+			logrus.Debugf("++++ krypton flag true.. creating krypton pod ++++")
 			pod, err := createKryptonPod(ctx, s.events, req, &spec)
 			if err != nil {
 				s.cl.Unlock()
@@ -194,6 +204,7 @@ func (s *service) createInternal(ctx context.Context, req *task.CreateTaskReques
 			resp.Pid = uint32(e.Pid())
 			s.taskOrPod.Store(pod)
 		} else {
+			logrus.Debugf("++++ krypton flag false.. creating non krypton pod ++++")
 			pod, err = createPod(ctx, s.events, req, &spec)
 			if err != nil {
 				s.cl.Unlock()

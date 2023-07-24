@@ -281,16 +281,19 @@ func (uvm *UtilityVM) Start(ctx context.Context) (err error) {
 		uvm.protocol = properties.GuestConnectionInfo.ProtocolVersion
 	}
 
-	if uvm.confidentialUVMOptions != nil && uvm.OS() == "linux" {
+	/*if uvm.confidentialUVMOptions != nil && uvm.OS() == "linux" {
 		copts := []ConfidentialUVMOpt{
 			WithSecurityPolicy(uvm.confidentialUVMOptions.SecurityPolicy),
 			WithSecurityPolicyEnforcer(uvm.confidentialUVMOptions.SecurityPolicyEnforcer),
 			WithUVMReferenceInfo(defaultLCOWOSBootFilesPath(), uvm.confidentialUVMOptions.UVMReferenceInfoFile),
 		}
+
+		logrus.Debugf("++++ in uvm start.go calling SetConfidentialUVMOptions ++++")
+
 		if err := uvm.SetConfidentialUVMOptions(ctx, copts...); err != nil {
 			return err
 		}
-	}
+	}*/
 
 	return nil
 }

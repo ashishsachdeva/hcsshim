@@ -553,6 +553,8 @@ func (h *Host) modifyHostSettings(ctx context.Context, containerID string, req *
 		if !ok {
 			return errors.New("the request's settings are not of type LCOWConfidentialOptions")
 		}
+
+		logrus.Debugf("++++ in hcsv2 uvm.go calling SetConfidentialUVMOptions ++++")
 		return h.SetConfidentialUVMOptions(ctx, r)
 	case guestresource.ResourceTypePolicyFragment:
 		r, ok := req.Settings.(*guestresource.LCOWSecurityPolicyFragment)

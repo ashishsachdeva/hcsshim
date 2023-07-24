@@ -14,6 +14,7 @@ import (
 	"github.com/containerd/containerd/runtime/v2/task"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -59,6 +60,7 @@ import (
 }*/
 
 func createKryptonPod(ctx context.Context, events publisher, req *task.CreateTaskRequest, s *specs.Spec) (shimPod, error) {
+	logrus.Debugf("++++ in pod krypton.. createKryptonPod method ++++")
 	//if osversion.Build < osversion.V20H1 {
 	//	return nil, errors.Wrapf(errdefs.ErrFailedPrecondition, "Krypton pod support is not available on Windows versions previous to 20H1(%d)", osversion.RS5)
 	//}
@@ -121,6 +123,7 @@ func (p *kryptonPod) ID() string {
 }
 
 func (p *kryptonPod) CreateTask(ctx context.Context, req *task.CreateTaskRequest, s *specs.Spec) (_ shimTask, err error) {
+	logrus.Debugf("++++ in pod krypton.. CreateTask method ++++")
 	if req.ID == p.id {
 		return nil, errors.Wrapf(errdefs.ErrAlreadyExists, "task with id: '%s' already exists", req.ID)
 	}

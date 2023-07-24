@@ -4,19 +4,18 @@ package uvm
 
 import (
 	"context"
-	"fmt"
-	"os"
-	"path/filepath"
-
-	hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
-	"github.com/Microsoft/hcsshim/internal/protocol/guestrequest"
-	"github.com/Microsoft/hcsshim/internal/protocol/guestresource"
+	//"fmt"
+	//"os"
+	//"path/filepath"
+	//hcsschema "github.com/Microsoft/hcsshim/internal/hcs/schema2"
+	//"github.com/Microsoft/hcsshim/internal/protocol/guestrequest"
+	//"github.com/Microsoft/hcsshim/internal/protocol/guestresource"
 )
 
 // Share shares in file(s) from `reqHostPath` on the host machine to `reqUVMPath` inside the UVM.
 // This function handles both LCOW and WCOW scenarios.
 func (uvm *UtilityVM) Share(ctx context.Context, reqHostPath, reqUVMPath string, readOnly bool) (err error) {
-	if uvm.OS() == "windows" {
+	/*if uvm.OS() == "windows" {
 		options := uvm.DefaultVSMBOptions(readOnly)
 
 		// Disable direct map if the uvm is a template so we can easily unmount shares when trying to create a template.
@@ -73,6 +72,6 @@ func (uvm *UtilityVM) Share(ctx context.Context, reqHostPath, reqUVMPath string,
 				_ = plan9Share.Release(ctx)
 			}
 		}()
-	}
+	}*/
 	return nil
 }

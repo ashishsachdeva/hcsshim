@@ -51,19 +51,115 @@ func newKryptonTask(
 	//
 	// TODO(pbozzay): Create a version of this function that can take a spec and convert the
 	// 				  container portion of the request to a UVM spec.
-	log.G(ctx).Debugf("Logging Spec : %v", s)
+	log.G(ctx).Debugf("++++ Logging Spec : %v", s)
 	opts, err := oci.SpecToKryptonUVMCreateOpts(ctx, s, fmt.Sprintf("%s@vm", req.ID), owner)
-	log.G(ctx).Debugf("Logging Opts : %v", opts)
+	log.G(ctx).Debugf("++++ Logging Opts : %v", opts)
 	if err != nil {
 		return nil, err
 	}
 
 	var wcow *uvm.UtilityVM
+	var lcow *uvm.UtilityVM
+	var lopts *uvm.OptionsLCOW
 	var krypton *uvm.KryptonContainer
 
 	switch opts.(type) {
 	case *uvm.OptionsLCOW:
-		return nil, errors.Wrap(errdefs.ErrFailedPrecondition, "Krypton tasks are not supported for LCOW.")
+		// return nil, errors.Wrap(errdefs.ErrFailedPrecondition, "Krypton tasks are not supported for LCOW.")
+		log.G(ctx).Debugf("++++ in task krypton.. Creating krypton uvm container ++++ ")
+		lopts = (opts).(*uvm.OptionsLCOW)
+		lopts.BundleDirectory = req.Bundle
+		lcow, err = uvm.CreateLCOW(ctx, lopts)
+		if err != nil {
+			return nil, err
+		}
+
+		log.G(ctx).Debugf("++++ in task krypton.. starting krypton uvm container ++++ ")
+		/*err = lcow.Start(ctx)
+		if err != nil {
+			lcow.Close()
+			return nil, err
+		}*/
+
+		log.G(ctx).Debugf("++++ in task krypton.. started krypton uvm container ++++ ")
+
+		// Default to an infinite timeout (zero value)
+		var ioRetryTimeout time.Duration
+		io, err := cmd.NewNpipeIO(ctx, req.Stdin, req.Stdout, req.Stderr, req.Terminal, ioRetryTimeout)
+		if err != nil {
+			return nil, err
+		}
+
+		log.G(ctx).Debugf("++++ in task krypton.. network setup in krypton uvm container ++++ ")
+		cid := req.ID
+		if id, ok := s.Annotations[annotations.NcproxyContainerID]; ok {
+			cid = id
+		}
+		caAddr := fmt.Sprintf(uvm.ComputeAgentAddrFmt, cid)
+		if err := lcow.CreateAndAssignNetworkSetup(ctx, caAddr, cid); err != nil {
+			return nil, err
+		}
+
+		log.G(ctx).Debugf("++++ in task krypton.. creating krypton object ++++ ")
+		krypton = &uvm.KryptonContainer{UtilityVM: lcow}
+		log.G(ctx).Debugf("++++ in task krypton.. done creating krypton object ++++ ")
+
+		kt := &kryptonTask{
+			events:   events,
+			id:       req.ID,
+			c:        krypton,
+			uvm:      lcow,
+			closed:   make(chan struct{}),
+			taskSpec: s,
+		}
+
+		log.G(ctx).Debugf("++++ in task krypton.. done creating krypton task ++++ ")
+
+		// Create an exec inside of this container; this will start the container.
+		kt.init = newKryptonExec(
+			ctx,
+			events,
+			req.ID,
+			krypton,
+			req.ID,
+			req.Bundle,
+			s.Process,
+			s,
+			lcow,
+			io,
+		)
+
+		log.G(ctx).Debugf("++++ in task krypton.. done creating krypton exec ++++ ")
+
+		// In the normal case the `Signal` call from the caller killed this task's
+		// init process. Or the init process ran to completion - this will mostly
+		// happen when we are creating a template and want to wait for init process
+		// to finish before we save the template. In such cases do not tear down the
+		// container after init exits - because we need the container in the template
+		go kt.waitInitExit(!kt.uvm.IsTemplate)
+
+		log.G(ctx).Debugf("++++ in task krypton.. done waitInitExit ++++ ")
+
+		// Publish the created event
+		kt.events.publishEvent(
+			ctx,
+			runtime.TaskCreateEventTopic,
+			&eventstypes.TaskCreate{
+				ContainerID: req.ID,
+				Bundle:      req.Bundle,
+				Rootfs:      req.Rootfs,
+				IO: &eventstypes.TaskIO{
+					Stdin:    req.Stdin,
+					Stdout:   req.Stdout,
+					Stderr:   req.Stderr,
+					Terminal: req.Terminal,
+				},
+				Checkpoint: "",
+				Pid:        uint32(kt.init.Pid()),
+			})
+
+		log.G(ctx).Debugf("++++ in task krypton.. done publishEvent ++++ ")
+		return kt, nil
 	case *uvm.OptionsWCOW:
 		wopts := (opts).(*uvm.OptionsWCOW)
 
@@ -219,6 +315,7 @@ func (kt *kryptonTask) ID() string {
 }
 
 func (kt *kryptonTask) CreateExec(ctx context.Context, req *task.ExecProcessRequest, spec *specs.Process) error {
+	logrus.Debugf("++++ in task krypton.. create exec method ++++")
 	kt.ecl.Lock()
 	defer kt.ecl.Unlock()
 
@@ -267,13 +364,16 @@ func (kt *kryptonTask) CreateExec(ctx context.Context, req *task.ExecProcessRequ
 }
 
 func (kt *kryptonTask) GetExec(eid string) (shimExec, error) {
+	logrus.Debugf("++++ in task krypton.. get exec method ++++")
 	if eid == "" {
 		return kt.init, nil
 	}
 	raw, loaded := kt.execs.Load(eid)
+	logrus.Debugf("++++ in task krypton.. get exec loaded ++++")
 	if !loaded {
 		return nil, errors.Wrapf(errdefs.ErrNotFound, "exec: '%s' in task: '%s' not found", eid, kt.id)
 	}
+	logrus.Debugf("++++ in task krypton.. returning from getexec ++++")
 	return raw.(shimExec), nil
 }
 

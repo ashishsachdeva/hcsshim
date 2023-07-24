@@ -267,9 +267,38 @@ func specToUVMCreateOptionsCommon(ctx context.Context, opts *uvm.Options, s *spe
 
 // SpecToKryptonUVMCreateOpts parses `s` and returns `*uvm.OptionsWCOW`.
 func SpecToKryptonUVMCreateOpts(ctx context.Context, s *specs.Spec, id, owner string) (interface{}, error) {
-	// TODO(pbozzay): Validate that this is a krypton
 	if IsLCOW(s) {
-		return nil, errors.New("cannot create linux UVM opts for krypton spec")
+		//return nil, errors.New("cannot create linux UVM opts for krypton spec")
+		lopts := uvm.NewDefaultOptionsLCOW(id, owner)
+		specToUVMCreateOptionsCommon(ctx, lopts.Options, s)
+
+		lopts.EnableColdDiscardHint = ParseAnnotationsBool(ctx, s.Annotations, annotations.EnableColdDiscardHint, lopts.EnableColdDiscardHint)
+		lopts.VPMemDeviceCount = parseAnnotationsUint32(ctx, s.Annotations, annotations.VPMemCount, lopts.VPMemDeviceCount)
+		lopts.VPMemSizeBytes = parseAnnotationsUint64(ctx, s.Annotations, annotations.VPMemSize, lopts.VPMemSizeBytes)
+		lopts.VPMemNoMultiMapping = ParseAnnotationsBool(ctx, s.Annotations, annotations.VPMemNoMultiMapping, lopts.VPMemNoMultiMapping)
+		lopts.VPCIEnabled = ParseAnnotationsBool(ctx, s.Annotations, annotations.VPCIEnabled, lopts.VPCIEnabled)
+		lopts.BootFilesPath = parseAnnotationsString(s.Annotations, annotations.BootFilesRootPath, lopts.BootFilesPath)
+		lopts.EnableScratchEncryption = ParseAnnotationsBool(ctx, s.Annotations, annotations.EncryptedScratchDisk, lopts.EnableScratchEncryption)
+		// lopts.SecurityPolicy = parseAnnotationsString(s.Annotations, annotations.SecurityPolicy, lopts.SecurityPolicy)
+		// lopts.SecurityPolicyEnforcer = parseAnnotationsString(s.Annotations, annotations.SecurityPolicyEnforcer, lopts.SecurityPolicyEnforcer)
+		lopts.UVMReferenceInfoFile = parseAnnotationsString(s.Annotations, annotations.UVMReferenceInfoFile, lopts.UVMReferenceInfoFile)
+		lopts.KernelBootOptions = parseAnnotationsString(s.Annotations, annotations.KernelBootOptions, lopts.KernelBootOptions)
+		lopts.DisableTimeSyncService = ParseAnnotationsBool(ctx, s.Annotations, annotations.DisableLCOWTimeSyncService, lopts.DisableTimeSyncService)
+		handleAnnotationPreferredRootFSType(ctx, s.Annotations, lopts)
+		handleAnnotationKernelDirectBoot(ctx, s.Annotations, lopts)
+
+		// parsing of FullyPhysicallyBacked needs to go after handling kernel direct boot and
+		// preferred rootfs type since it may overwrite settings created by those
+		handleAnnotationFullyPhysicallyBacked(ctx, s.Annotations, lopts)
+
+		// SecurityPolicy is very sensitive to other settings and will silently change those that are incompatible.
+		// Eg VMPem device count, overridden kernel option cannot be respected.
+		handleSecurityPolicy(ctx, s.Annotations, lopts)
+
+		// override the default GuestState filename if specified
+		lopts.GuestStateFile = parseAnnotationsString(s.Annotations, annotations.GuestStateFile, lopts.GuestStateFile)
+
+		return lopts, nil
 	} else if IsWCOW(s) {
 		wopts := uvm.NewDefaultOptionsWCOW(id, owner)
 		wopts.MemorySizeInMB = ParseAnnotationsMemory(ctx, s, annotations.MemorySizeInMB, wopts.MemorySizeInMB)
