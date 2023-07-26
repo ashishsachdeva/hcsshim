@@ -572,10 +572,13 @@ func (s *service) shutdownInternal(ctx context.Context, req *task.ShutdownReques
 }
 
 func (s *service) computeProcessorInfoInternal(ctx context.Context, req *extendedtask.ComputeProcessorInfoRequest) (*extendedtask.ComputeProcessorInfoResponse, error) {
+	logrus.Debugf("++++ in service internal: compute processor info internal: ReqID %s %v++++", req.ID, req.ID)
 	t, err := s.getTask(req.ID)
 	if err != nil {
 		return nil, err
 	}
+
+	logrus.Debugf("++++ in service internal: compute processor info internal: calling processor info on task ++++")
 	info, err := t.ProcessorInfo(ctx)
 	if err != nil {
 		return nil, err

@@ -746,7 +746,12 @@ func saveAsKryptonTemplate(ctx context.Context, templateTask *kryptonTask) (err 
 }
 
 func (kt *kryptonTask) ProcessorInfo(ctx context.Context) (*processorInfo, error) {
+
+	logrus.Debugf("++++ in task krypton:ProcessorInfo: Krypton Task %s ++++", kt)
+	logrus.Debugf("++++ in task krypton:ProcessorInfo: Krypton Task ID %s ++++", kt.id)
+
 	if kt.uvm == nil {
+		logrus.Debugf("++++ in task krypton:ProcessorInfo: uvm in krypton task is nil.. returning error ++++")
 		return nil, errTaskNotIsolated
 	}
 
